@@ -37,7 +37,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendMessage() async {
-    if (_isLoading) return; // Evitar envíos dobles
+    if (_isLoading) return;
     String userMessage = _currentText.trim();
     if (userMessage.isEmpty) return;
 
@@ -45,7 +45,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _isLoading = true;
       _messages.add({"role": "user", "content": userMessage});
     });
-    _stopListening(); // Detener escucha antes de enviar
+    _stopListening();
 
     String botResponse = await DeepSeekService().sendMessage(
       userMessage,
@@ -106,13 +106,17 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("DeepSeek con Voz"),
+        title: Text(
+          "DeepSeek con Voz",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.blueAccent,
       ),
       body: Column(
         children: [
           Expanded(
             child: ListView.builder(
+              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final msg = _messages[index];
@@ -121,26 +125,37 @@ class _ChatScreenState extends State<ChatScreen> {
                   alignment:
                       isUser ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
-                    padding: EdgeInsets.all(12),
-                    margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                    padding: EdgeInsets.all(14),
+                    margin: EdgeInsets.symmetric(vertical: 6),
                     decoration: BoxDecoration(
-                      color: isUser ? Colors.blue[300] : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(15),
+                      color:
+                          isUser ? Colors.blue.shade600 : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 4,
+                          offset: Offset(2, 2),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isUser ? "Usuario:" : "DeepSeek:",
+                          isUser ? "Usuario" : "DeepSeek",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: isUser ? Colors.white : Colors.black,
+                            color: isUser ? Colors.white : Colors.black87,
                           ),
                         ),
                         SizedBox(height: 4),
                         Text(
                           msg["content"] ?? "",
-                          style: TextStyle(fontSize: 16),
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: isUser ? Colors.white : Colors.black87,
+                          ),
                         ),
                       ],
                     ),
@@ -149,9 +164,16 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          if (_isLoading) CircularProgressIndicator(),
+          if (_isLoading)
+            Padding(
+              padding: EdgeInsets.all(10),
+              child: Text(
+                "DeepSeek está escribiendo...",
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
           Padding(
-            padding: EdgeInsets.all(8.0),
+            padding: EdgeInsets.all(12.0),
             child: Column(
               children: [
                 Text(
@@ -163,12 +185,30 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
                 SizedBox(height: 5),
-                IconButton(
-                  icon: Icon(
-                    _isListening ? Icons.mic_off : Icons.mic,
-                    color: _isListening ? Colors.red : Colors.grey,
+                GestureDetector(
+                  onTap: _isListening ? _stopListening : _startListening,
+                  child: AnimatedContainer(
+                    duration: Duration(milliseconds: 300),
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color:
+                          _isListening ? Colors.redAccent : Colors.blueAccent,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 6,
+                          offset: Offset(2, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      _isListening ? Icons.mic_off : Icons.mic,
+                      color: Colors.white,
+                      size: 30,
+                    ),
                   ),
-                  onPressed: _isListening ? _stopListening : _startListening,
                 ),
               ],
             ),
