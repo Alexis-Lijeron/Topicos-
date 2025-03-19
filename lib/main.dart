@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:flutter_tts/flutter_tts.dart';
+import 'dart:async';
 import 'services/deepseek_service.dart';
 
 void main() {
@@ -18,32 +21,84 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final TextEditingController _controller = TextEditingController();
   final List<Map<String, String>> _messages = [];
   bool _isLoading = false;
+  late stt.SpeechToText _speech;
+  bool _isListening = false;
+  String _statusText = "Toque para hablar";
+  FlutterTts _flutterTts = FlutterTts();
+  Timer? _silenceTimer;
+  String _currentText = "";
+
+  @override
+  void initState() {
+    super.initState();
+    _speech = stt.SpeechToText();
+  }
 
   Future<void> _sendMessage() async {
-    String userMessage = _controller.text.trim();
+    if (_isLoading) return; // Evitar envíos dobles
+    String userMessage = _currentText.trim();
     if (userMessage.isEmpty) return;
 
     setState(() {
-      _messages.add({"role": "user", "content": userMessage});
       _isLoading = true;
+      _messages.add({"role": "user", "content": userMessage});
     });
-    _controller.clear();
+    _stopListening(); // Detener escucha antes de enviar
 
     String botResponse = await DeepSeekService().sendMessage(
       userMessage,
       _messages,
     );
-    botResponse = botResponse.replaceAll(
-      RegExp(r'\\boxed\{|\}'),
-      '',
-    ); 
+    botResponse = botResponse.replaceAll(RegExp(r'\\boxed\{|\}'), '');
 
     setState(() {
       _messages.add({"role": "bot", "content": botResponse});
       _isLoading = false;
+    });
+
+    _speak(botResponse);
+  }
+
+  Future<void> _speak(String text) async {
+    await _flutterTts.speak(text);
+  }
+
+  void _startListening() async {
+    bool available = await _speech.initialize();
+    if (available) {
+      setState(() {
+        _isListening = true;
+        _statusText = "Escuchando...";
+        _currentText = "";
+      });
+      _speech.listen(
+        onResult: (result) {
+          setState(() {
+            _currentText = result.recognizedWords;
+          });
+          _resetSilenceTimer();
+        },
+        onSoundLevelChange: (level) {
+          _resetSilenceTimer();
+        },
+      );
+    }
+  }
+
+  void _resetSilenceTimer() {
+    _silenceTimer?.cancel();
+    _silenceTimer = Timer(Duration(seconds: 5), () {
+      _sendMessage();
+    });
+  }
+
+  void _stopListening() {
+    _speech.stop();
+    setState(() {
+      _isListening = false;
+      _statusText = "Toque para hablar";
     });
   }
 
@@ -51,7 +106,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("DeepSeek"),
+        title: Text("DeepSeek con Voz"),
         backgroundColor: Colors.blueAccent,
       ),
       body: Column(
@@ -97,20 +152,23 @@ class _ChatScreenState extends State<ChatScreen> {
           if (_isLoading) CircularProgressIndicator(),
           Padding(
             padding: EdgeInsets.all(8.0),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: InputDecoration(
-                      hintText: "Escribe un mensaje...",
-                      border: OutlineInputBorder(),
-                    ),
+                Text(
+                  _statusText,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
                   ),
                 ),
+                SizedBox(height: 5),
                 IconButton(
-                  icon: Icon(Icons.send, color: Colors.blueAccent),
-                  onPressed: _sendMessage,
+                  icon: Icon(
+                    _isListening ? Icons.mic_off : Icons.mic,
+                    color: _isListening ? Colors.red : Colors.grey,
+                  ),
+                  onPressed: _isListening ? _stopListening : _startListening,
                 ),
               ],
             ),
